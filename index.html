@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Kaleidoscope</title>
+    <!-- p5.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    
+    <!-- Tailwind CSS for styling the controls -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        /* Basic styles to make the canvas fill the screen */
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #111827; /* Dark background */
+            font-family: 'Inter', sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        /* Style for the controls panel */
+        .controls {
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            background-color: rgba(17, 24, 39, 0.8); /* Semi-transparent dark background */
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 1rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #f3f4f6; /* Light text color */
+            max-width: 300px;
+        }
+        .control-item {
+            margin-bottom: 1rem;
+        }
+        .control-item label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        /* Custom styling for range sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #4b5563; /* Gray track */
+            border-radius: 5px;
+            outline: none;
+            opacity: 0.7;
+            transition: opacity .2s;
+        }
+        input[type="range"]:hover {
+            opacity: 1;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #60a5fa; /* Blue thumb */
+            cursor: pointer;
+            border-radius: 50%;
+            border: 2px solid #1f2937;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #60a5fa;
+            cursor: pointer;
+            border-radius: 50%;
+            border: 2px solid #1f2937;
+        }
+        /* Styling for the color input */
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 40px;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            background-color: transparent;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        input[type="color"]::-webkit-color-swatch {
+            border-radius: 0.375rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <!-- This is where the p5.js canvas will be injected -->
+    <main id="canvas-container"></main>
+
+    <!-- UI Controls for the kaleidoscope -->
+    <div class="controls">
+        <div class="control-item">
+            <label for="symmetry" class="flex justify-between items-center">
+                Symmetry Points: <span id="symmetry-value">6</span>
+            </label>
+            <input type="range" id="symmetry" min="2" max="24" value="6">
+        </div>
+        <div class="control-item">
+            <label for="stroke-width" class="flex justify-between items-center">
+                Brush Size: <span id="stroke-width-value">4</span>
+            </label>
+            <input type="range" id="stroke-width" min="1" max="30" value="4">
+        </div>
+        <div class="control-item">
+            <label for="color-picker">Line Color</label>
+            <input type="color" id="color-picker" value="#3498db">
+        </div>
+        <button id="clear-button" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200">
+            Clear Canvas
+        </button>
+    </div>
+
+    <script>
+        // --- Global Variables ---
+        let symmetry = 6; // Number of reflection points
+        let angle; // Angle between each reflection
+        let colorPicker;
+        let symmetrySlider, strokeWidthSlider;
+        let symmetryValueSpan, strokeWidthValueSpan;
+
+        // --- p5.js Setup Function ---
+        // This function runs once when the sketch starts.
+        function setup() {
+            // Create a canvas that fills the entire window and append it to our container
+            let canvas = createCanvas(windowWidth, windowHeight);
+            canvas.parent('canvas-container');
+
+            // Set angle mode to degrees for easier calculations
+            angleMode(DEGREES);
+            
+            // Set the initial background color
+            background(17, 24, 39); // Corresponds to bg-gray-900
+
+            // --- Initialize UI Controls ---
+            // Get references to all the HTML input elements
+            colorPicker = select('#color-picker');
+            symmetrySlider = select('#symmetry');
+            strokeWidthSlider = select('#stroke-width');
+            const clearButton = select('#clear-button');
+
+            // Get references to the span elements that display the slider values
+            symmetryValueSpan = select('#symmetry-value');
+            strokeWidthValueSpan = select('#stroke-width-value');
+
+            // --- Attach Event Listeners ---
+            // Update variables and UI when sliders are changed
+            symmetrySlider.input(() => {
+                symmetry = symmetrySlider.value();
+                symmetryValueSpan.html(symmetry);
+            });
+
+            strokeWidthSlider.input(() => {
+                strokeWidthValueSpan.html(strokeWidthSlider.value());
+            });
+
+            // Add a mouse-pressed event to the clear button
+            clearButton.mousePressed(clearCanvas);
+
+            // Set initial values from the controls
+            symmetry = symmetrySlider.value();
+            symmetryValueSpan.html(symmetry);
+            strokeWidthValueSpan.html(strokeWidthSlider.value());
+        }
+
+        // --- Clear Canvas Function ---
+        // Resets the background, effectively clearing the drawing
+        function clearCanvas() {
+            background(17, 24, 39);
+        }
+
+        // --- p5.js Draw Function ---
+        // This function runs in a continuous loop.
+        function draw() {
+            // Translate the origin (0,0) to the center of the canvas.
+            // This makes the rotation and reflection math much simpler.
+            translate(width / 2, height / 2);
+
+            // Only draw if the mouse is pressed and moving inside the canvas
+            if (mouseIsPressed && mouseX > 0 && mouseX < width && mouseY > 0 && mouseY < height) {
+                // Get the current and previous mouse positions
+                // We subtract the canvas half-width/height to get coordinates relative to the new center origin
+                const mx = mouseX - width / 2;
+                const my = mouseY - height / 2;
+                const pmx = pmouseX - width / 2;
+                const pmy = pmouseY - height / 2;
+
+                // Set the drawing style from our UI controls
+                stroke(colorPicker.value());
+                strokeWeight(strokeWidthSlider.value());
+
+                // The core kaleidoscope logic
+                // We loop 'symmetry' times, rotating the canvas each time
+                for (let i = 0; i < symmetry; i++) {
+                    // Rotate the canvas by the calculated angle
+                    rotate(360 / symmetry);
+
+                    // Draw a line from the previous to the current mouse position
+                    line(mx, my, pmx, pmy);
+
+                    // To create true symmetry, we also draw a reflected version.
+                    // We can do this easily by flipping the coordinate system on one axis.
+                    push(); // Save the current transformation state
+                    scale(1, -1); // Flip the y-axis
+                    line(mx, my, pmx, pmy); // Draw the reflected line
+                    pop(); // Restore the original transformation state
+                }
+            }
+        }
+
+        // --- p5.js Window Resized Function ---
+        // This function is called automatically whenever the browser window is resized.
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight);
+            // Clear the canvas on resize to prevent distorted patterns
+            clearCanvas();
+        }
+    </script>
+</body>
+</html>
